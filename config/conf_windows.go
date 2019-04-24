@@ -1,6 +1,6 @@
 // +build windows
 
-package conf
+package config
 
 import (
 	"context"
@@ -21,8 +21,11 @@ import (
 	"golang.org/x/sys/windows/svc/mgr"
 )
 
-const name = "sower"
-const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+func init() {
+	defaultConfFile := filepath.Dir(os.Args[0]) + "\\sower.toml"
+	if _, err := os.Stat(defaultConfFile); err != nil && os.IsNotExist(err) {
+		defaultConfFile = ""
+	}
 
 func initArgs() {
 	cfgFile, _ := filepath.Abs(filepath.Join(filepath.Dir(os.Args[0]), "sower.toml"))
@@ -37,63 +40,88 @@ func initArgs() {
 		flag.Parse()
 	}
 
-	switch {
-	case *install:
-		mgrDo(func(m *mgr.Mgr) error {
-			s, err := m.OpenService(name)
-			if err == nil {
-				s.Close()
-				return fmt.Errorf("service %s already exists", name)
-			}
-			s, err = m.CreateService(name, os.Args[0], mgr.Config{
-				DisplayName: "Sower Proxy",
-				StartType:   windows.SERVICE_AUTO_START,
-			})
-			if err != nil {
-				return err
-			}
-			defer s.Close()
-			err = eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info)
-			if err != nil {
-				s.Delete()
-				return fmt.Errorf("SetupEventLogSource() failed: %s", err)
-			}
+	if err := conf.Init(); err != nil {
+		if *printVersion {
+			conf.PrintVersion()
+		}
+		glog.Exitln(err)
+	}
 
-			return s.Start()
-		})
+	switch {
+	case *printVersion:
+		conf.PrintVersion()
+
+	case *install:
+		installService()
 		os.Exit(0)
 
 	case *uninstall:
-		serviceDo(func(s *mgr.Service) error {
-			err := s.Delete()
-			if err != nil {
-				return err
-			}
-			return eventlog.Remove(name)
-		})
+		uninstallService()
 		os.Exit(0)
 
 	default:
-		os.Chdir(filepath.Dir(os.Args[0]))
-		if active, err := svc.IsAnInteractiveSession(); err != nil {
-			glog.Exitf("failed to determine if we are running in an interactive session: %v", err)
-		} else if !active {
-			go func() {
-				elog, err := eventlog.Open(name)
-				if err != nil {
-					glog.Exitln(err)
-				}
-				defer elog.Close()
-
-				if err := svc.Run(name, &myservice{}); err != nil {
-					elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
-					glog.Exitln(err)
-				}
-				elog.Info(1, fmt.Sprintf("winsvc.RunAsService: %s service stopped", name))
-				os.Exit(0)
-			}()
-		}
+		runWithService()
 	}
+}
+
+// Windows service implement
+const name = "sower"
+const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPauseAndContinue
+
+func runWithService() {
+	os.Chdir(filepath.Dir(os.Args[0]))
+	if active, err := svc.IsAnInteractiveSession(); err != nil {
+		glog.Exitf("failed to determine if we are running in an interactive session: %v", err)
+	} else if !active {
+		go func() {
+			elog, err := eventlog.Open(name)
+			if err != nil {
+				glog.Exitln(err)
+			}
+			defer elog.Close()
+
+			if err := svc.Run(name, &myservice{}); err != nil {
+				elog.Error(1, fmt.Sprintf("%s service failed: %v", name, err))
+				glog.Exitln(err)
+			}
+			elog.Info(1, fmt.Sprintf("winsvc.RunAsService: %s service stopped", name))
+			os.Exit(0)
+		}()
+	}
+}
+func installService() {
+	mgrDo(func(m *mgr.Mgr) error {
+		s, err := m.OpenService(name)
+		if err == nil {
+			s.Close()
+			return fmt.Errorf("service %s already exists", name)
+		}
+		s, err = m.CreateService(name, os.Args[0], mgr.Config{
+			DisplayName: "Sower Proxy",
+			StartType:   windows.SERVICE_AUTO_START,
+		})
+		if err != nil {
+			return err
+		}
+		defer s.Close()
+		err = eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info)
+		if err != nil {
+			s.Delete()
+			return fmt.Errorf("SetupEventLogSource() failed: %s", err)
+		}
+
+		return s.Start()
+	})
+}
+
+func uninstallService() {
+	serviceDo(func(s *mgr.Service) error {
+		err := s.Delete()
+		if err != nil {
+			return err
+		}
+		return eventlog.Remove(name)
+	})
 }
 
 func serviceDo(fn func(*mgr.Service) error) {
@@ -152,12 +180,13 @@ func (m *myservice) Execute(args []string, r <-chan svc.ChangeRequest, changes c
 	}
 }
 
-func execute(cmd string) error {
+// execute run command like console
+func execute(command string) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
 
 	var cmds []string
-	for _, cmd := range strings.Split(Conf.ClearDNSCache, " ") {
+	for _, cmd := range strings.Split(command, " ") {
 		if cmd == "" {
 			continue
 		}
@@ -171,8 +200,8 @@ func execute(cmd string) error {
 		return nil
 	}
 
-	command := exec.CommandContext(ctx, cmds[0], cmds[1:]...)
-	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	out, err := command.CombinedOutput()
-	return errors.Wrapf(err, "cmd: %s, output: %s, error", Conf.ClearDNSCache, out)
+	cmd := exec.CommandContext(ctx, cmds[0], cmds[1:]...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	out, err := cmd.CombinedOutput()
+	return errors.Wrapf(err, "cmd: %s, output: %s, error", command, out)
 }
