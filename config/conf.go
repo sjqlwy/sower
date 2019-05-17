@@ -34,11 +34,13 @@ func GetConf() *Conf {
 // config definition
 type Conf struct {
 	ConfigFile string `toml:"-"`
-	Verbose    int    `toml:"verbose"`
+	LogVerbose int    `toml:"log_verbose"`
 
-	DNS struct {
-		RedirectIP  string `toml:"redirect_ip"`
-		UpstreamDNS string `toml:"upstream_dns"`
+	Client struct {
+		HTTPProxy   string   `toml:"http_proxy"`
+		RelayPorts  []string `toml:"relay_ports"`
+		RedirectIP  string   `toml:"redirect_ip"`
+		UpstreamDNS string   `toml:"upstream_dns"`
 
 		Rule struct {
 			BlockList []string `toml:"blocklist"`
@@ -50,7 +52,7 @@ type Conf struct {
 			OnSuggest    string   `toml:"on_suggest"`
 			Suggestions  []string `toml:"suggestions"`
 		} `toml:"suggest"`
-	} `toml:"dns"`
+	} `toml:"client"`
 
 	P2P struct {
 		ID        string `toml:"id"`
@@ -72,11 +74,6 @@ type Conf struct {
 			Password string `toml:"password"`
 		} `toml:"super_peers"`
 	} `toml:"p2p"`
-
-	Proxy struct {
-		HTTPProxy  string   `toml:"http_proxy"`
-		RelayPorts []string `toml:"relay_ports"`
-	} `toml:"proxy"`
 }
 
 func (c *Conf) Init() error {
