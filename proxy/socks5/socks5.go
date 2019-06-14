@@ -9,16 +9,33 @@ import (
 	"github.com/pkg/errors"
 )
 
-func ToSocks5(c net.Conn, domain, port string) net.Conn {
-	num, _ := strconv.Atoi(port)
-	bytes := []byte{byte(num >> 8), byte(num)}
-	return &conn{init: make(chan struct{}), Conn: c, domain: domain, port: bytes}
+// Dial will dial a tcp connection with socks5 init
+func Dial(addr, tgtAddr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(tgtAddr)
+	if err != nil {
+		return nil, err
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, err
+	}
+	c, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return &conn{
+		init: make(chan struct{}),
+		Conn: c,
+		host: host,
+		port: []byte{byte(portNum >> 8), byte(portNum)},
+	}, nil
 }
 
 type conn struct {
-	init   chan struct{}
-	domain string
-	port   []byte
+	init chan struct{}
+	host string
+	port []byte
 	net.Conn
 }
 
@@ -58,7 +75,7 @@ func (c *conn) Write(b []byte) (n int, err error) {
 				RSV:  0, // RESERVED
 				ATYP: 3, // DOMAINNAME
 			},
-			DST_ADDR: append([]byte{byte(len(c.domain))}, []byte(c.domain)...),
+			DST_ADDR: append([]byte{byte(len(c.host))}, []byte(c.host)...),
 			DST_PORT: c.port,
 		}
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
+	"github.com/wweir/sower/conf"
 	"github.com/wweir/sower/util"
 )
 
@@ -14,13 +15,18 @@ var (
 	whiteList   *util.Node
 )
 
-// LoadRules init rules from config
-func LoadRules(blocklist, suggestions, whitelist []string, host string) {
-	blockList = loadRules("block", blocklist)
-	suggestList = loadRules("suggest", suggestions)
-	whiteList = loadRules("white", whitelist)
-	whiteList.Add(host)
-	glog.V(1).Infoln("reloaded config")
+func init() {
+	if _, err := conf.GetConf().AddHook(func(cfg *conf.Conf) {
+		blockList = loadRules("block", cfg.Client.Rule.BlockList)
+		suggestList = loadRules("suggest", cfg.Client.Suggest.Suggestions)
+		whiteList = loadRules("white", cfg.Client.Rule.WhiteList)
+		if cfg.P2P.Peer.IsP2P() {
+			whiteList.Add(cfg.P2P.Peer.AddrUUID)
+		}
+		glog.V(1).Infoln("reloaded config")
+	}, true); err != nil {
+		glog.Exitln(err)
+	}
 }
 
 func loadRules(name string, list []string) *util.Node {

@@ -15,6 +15,7 @@ import (
 var xid = make([]byte, 4)
 var broadcastAddr, _ = net.ResolveUDPAddr("udp", "255.255.255.255:67")
 
+// GetDefaultDNSServer return default dns server with dhcpv4 protocol
 func GetDefaultDNSServer() (string, error) {
 	iface, err := util.PickInterface()
 	if err != nil {

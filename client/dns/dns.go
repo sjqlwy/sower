@@ -13,12 +13,11 @@ import (
 	"github.com/wweir/sower/util"
 )
 
-const colon = byte(':')
-
-func StartDNS(dnsServer, listenIP string, suggestCh chan<- string, level string) {
+// StartDNS run a dns server with intelligent detect block
+func StartDNS(dnsServer, listenIP, suggestLevel string, suggestFn func(string)) {
 	ip := net.ParseIP(listenIP)
-
-	suggest := &intelliSuggest{suggestCh, parseSuggestLevel(level), listenIP, time.Second}
+	suggest := &suggest{listenIP, parseSuggestLevel(suggestLevel), suggestFn, time.Second}
+	colon := byte(':')
 	mem.DefaultCache = mem.New(time.Hour)
 
 	dhcpCh := make(chan struct{})
@@ -46,13 +45,14 @@ func StartDNS(dnsServer, listenIP string, suggestCh chan<- string, level string)
 			domain = domain[:idx] // trim port
 		}
 
-		matchAndServe(w, r, domain, listenIP, dnsServer, dhcpCh, ip, suggest)
+		handleRequest(w, r, domain, listenIP, dnsServer, dhcpCh, ip, suggest)
 	})
 
 	server := &dns.Server{Addr: net.JoinHostPort(listenIP, "53"), Net: "udp"}
 	glog.Fatalln(server.ListenAndServe())
 }
 
+// will detect default DNS setting in network with dhcpv4
 func dynamicSetUpstreamDNS(listenIP string, dnsServer *string, dhcpCh <-chan struct{}) {
 	addr, _ := dns.ReverseAddr(listenIP)
 	msg := &dns.Msg{
@@ -84,8 +84,10 @@ func dynamicSetUpstreamDNS(listenIP string, dnsServer *string, dhcpCh <-chan str
 		glog.Infoln("set dns server to", host)
 	}
 }
-func matchAndServe(w dns.ResponseWriter, r *dns.Msg, domain, listenIP, dnsServer string,
-	dhcpCh chan struct{}, ipNet net.IP, suggest *intelliSuggest) {
+
+// handleRequest serve dns request with suggest rules
+func handleRequest(w dns.ResponseWriter, r *dns.Msg, domain, listenIP, dnsServer string,
+	dhcpCh chan struct{}, ipNet net.IP, suggest *suggest) {
 
 	inWriteList := whiteList.Match(domain)
 	if !inWriteList && (blockList.Match(domain) || suggestList.Match(domain)) {
@@ -116,16 +118,18 @@ func matchAndServe(w dns.ResponseWriter, r *dns.Msg, domain, listenIP, dnsServer
 	w.WriteMsg(msg)
 }
 
-type intelliSuggest struct {
-	suggestCh chan<- string
-	level     level
+/******************************* suggest *******************************/
+type suggest struct {
 	listenIP  string
+	level     level
+	suggestFn func(string)
 	timeout   time.Duration
 }
 
-func (i *intelliSuggest) GetOne(key interface{}) (iface interface{}, e error) {
+// GetOne define a intelligent detect policy
+func (s *suggest) GetOne(key interface{}) (iface interface{}, e error) {
 	iface, e = struct{}{}, nil
-	if i.level == DISABLE {
+	if s.level == DISABLE {
 		return
 	}
 
@@ -147,9 +151,9 @@ func (i *intelliSuggest) GetOne(key interface{}) (iface interface{}, e error) {
 			port    util.Port
 		}{
 			{ip[0].String(), util.HTTP},
-			{i.listenIP, util.HTTP},
+			{s.listenIP, util.HTTP},
 			{ip[0].String(), util.HTTPS},
-			{i.listenIP, util.HTTPS},
+			{s.listenIP, util.HTTPS},
 		}
 		protos = [...]*int32{
 			new(int32), /*HTTP*/
@@ -159,9 +163,9 @@ func (i *intelliSuggest) GetOne(key interface{}) (iface interface{}, e error) {
 	)
 	for idx := range pings {
 		go func(idx int) {
-			if err := util.HTTPPing(pings[idx].viaAddr, domain, pings[idx].port, i.timeout); err != nil {
+			if err := util.HTTPPing(pings[idx].viaAddr, domain, pings[idx].port, s.timeout); err != nil {
 				// local ping fail
-				if pings[idx].viaAddr == i.listenIP {
+				if pings[idx].viaAddr == s.listenIP {
 					atomic.AddInt32(score, -1)
 					glog.V(1).Infof("remote ping %s fail", domain)
 				} else {
@@ -170,8 +174,8 @@ func (i *intelliSuggest) GetOne(key interface{}) (iface interface{}, e error) {
 				}
 
 				// remote ping faster
-			} else if pings[idx].viaAddr == i.listenIP {
-				if atomic.CompareAndSwapInt32(protos[idx/2], 0, 1) && i.level == SPEEDUP {
+			} else if pings[idx].viaAddr == s.listenIP {
+				if atomic.CompareAndSwapInt32(protos[idx/2], 0, 1) && s.level == SPEEDUP {
 					atomic.AddInt32(score, 1)
 				}
 				glog.V(1).Infof("remote ping %s faster", domain)
@@ -194,7 +198,7 @@ func (i *intelliSuggest) GetOne(key interface{}) (iface interface{}, e error) {
 			// 2. all remote pings are faster
 			if atomic.LoadInt32(score) >= int32(len(protos)) {
 				old := atomic.SwapInt32(score, -1) // avoid readd the suggestion
-				i.suggestCh <- domain
+				s.suggestFn(domain)
 				glog.Infof("suggested domain: %s with score: %d", domain, old)
 			}
 		}(idx)

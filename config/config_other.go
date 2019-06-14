@@ -20,7 +20,7 @@ func init() {
 		defaultConfFile = ""
 	}
 
-	flag.StringVar(&conf.ConfigFile, "f", defaultConfFile, "config file location")
+	flag.StringVar(&cfg.ConfigFile, "f", defaultConfFile, "config file location")
 	printVersion := flag.Bool("v", false, "print sower version")
 
 	if !flag.Parsed() {
@@ -28,15 +28,15 @@ func init() {
 		flag.Parse()
 	}
 
-	if err := conf.Init(); err != nil {
+	if err := cfg.Init(); err != nil {
 		if *printVersion {
-			conf.PrintVersion()
+			cfg.printVersion()
 		}
 		glog.Exitln(err)
 	}
 
 	if *printVersion {
-		conf.PrintVersion()
+		cfg.printVersion()
 	}
 }
 

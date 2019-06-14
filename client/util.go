@@ -1,4 +1,4 @@
-package proxy
+package client
 
 import (
 	"io"
@@ -10,7 +10,6 @@ import (
 	"github.com/golang/glog"
 )
 
-// race safe
 var resolved = false
 
 func resolveAddr(server *string) {
