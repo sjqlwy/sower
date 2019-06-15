@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
-	"github.com/wweir/sower/config"
+	"github.com/wweir/sower/conf"
 	"github.com/wweir/sower/util"
 )
 
@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	if _, err := config.GetConf().AddHook(func(Conf *config.Conf) (string, error) {
+	if _, err := conf.GetConf().AddHook(func(Conf *conf.Conf) (string, error) {
 		blockList = loadRules("block", Conf.Client.Rule.BlockList)
 		suggestList = loadRules("suggest", Conf.Client.Suggest.Suggestions)
 		whiteList = loadRules("white", Conf.Client.Rule.WhiteList)

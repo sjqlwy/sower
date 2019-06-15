@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/wweir/sower/config"
+	"github.com/wweir/sower/conf"
 	"github.com/wweir/sower/transport"
 )
 
 func StartHttpProxy() {
-	for _, proxy := range config.GetConf().HTTPProxys {
+	for _, proxy := range conf.GetConf().HTTPProxys {
 		srv := &http.Server{
 			Addr: proxy.ListenAddr,
 			// Disable HTTP/2.

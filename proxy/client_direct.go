@@ -5,12 +5,12 @@ import (
 	"net/url"
 
 	"github.com/golang/glog"
-	"github.com/wweir/sower/config"
+	"github.com/wweir/sower/conf"
 	"github.com/wweir/sower/transport"
 )
 
 func StartDirectProxy() {
-	for _, proxy := range config.GetConf().DirectProxys {
+	for _, proxy := range conf.GetConf().DirectProxys {
 		go func(listenAddr, outletURI, tgtAddr string) {
 			ln, err := net.Listen("tcp", listenAddr)
 			if err != nil {

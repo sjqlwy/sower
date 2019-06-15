@@ -5,13 +5,13 @@ import (
 	"net/url"
 
 	"github.com/golang/glog"
-	"github.com/wweir/sower/config"
+	"github.com/wweir/sower/conf"
 	"github.com/wweir/sower/dns"
 	"github.com/wweir/sower/transport"
 )
 
 func StartIntelligentProxy() {
-	conf := config.GetConf()
+	conf := conf.GetConf()
 	if conf.Transport.OutletURI == "" {
 		return
 	}

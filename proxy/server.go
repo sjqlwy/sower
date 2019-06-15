@@ -6,12 +6,12 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/wweir/sower/config"
+	"github.com/wweir/sower/conf"
 	"github.com/wweir/sower/transport"
 )
 
 func StartServer() {
-	cfg := config.GetConf().Transport
+	cfg := conf.GetConf().Transport
 	u, err := url.Parse(cfg.SelfURI)
 	if err != nil {
 		glog.Fatalln(err)

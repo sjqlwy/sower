@@ -1,6 +1,6 @@
 // +build !windows
 
-package config
+package conf
 
 import (
 	"context"
