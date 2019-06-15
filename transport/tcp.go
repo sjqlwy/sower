@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/wweir/sower/transport/parser"
+	"github.com/wweir/sower/router"
 )
 
 type tcp struct {
@@ -24,7 +24,7 @@ func (t *tcp) Dial(addr, targetAddr string) (net.Conn, error) {
 
 	conn.(*net.TCPConn).SetKeepAlive(true)
 
-	return parser.WithTarget(conn, targetAddr)
+	return router.WithTarget(conn, targetAddr)
 }
 
 func (t *tcp) Listen(addr string) (<-chan *TargetConn, error) {
@@ -42,7 +42,7 @@ func (t *tcp) Listen(addr string) (<-chan *TargetConn, error) {
 			}
 			conn.(*net.TCPConn).SetKeepAlive(true)
 
-			c, addr, err := parser.ParseAddr(conn)
+			c, addr, err := router.ParseAddr(conn)
 			if err != nil {
 				glog.Errorln("parse addr:", err)
 			}

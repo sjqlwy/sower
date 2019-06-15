@@ -2,10 +2,11 @@ package dns
 
 import (
 	"net"
+	"net/url"
 
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
-	"github.com/wweir/sower/conf"
+	"github.com/wweir/sower/config"
 	"github.com/wweir/sower/util"
 )
 
@@ -16,14 +17,15 @@ var (
 )
 
 func init() {
-	if _, err := conf.GetConf().AddHook(func(cfg *conf.Conf) {
+	if _, err := config.GetCfg().AddHook(func(cfg *config.Cfg) (string, error) {
 		blockList = loadRules("block", cfg.Client.Rule.BlockList)
 		suggestList = loadRules("suggest", cfg.Client.Suggest.Suggestions)
 		whiteList = loadRules("white", cfg.Client.Rule.WhiteList)
-		if cfg.P2P.Peer.IsP2P() {
-			whiteList.Add(cfg.P2P.Peer.AddrUUID)
+		if u, err := url.Parse(cfg.Transport.OutletURI); err == nil {
+			whiteList.Add(u.Hostname())
 		}
 		glog.V(1).Infoln("reloaded config")
+		return "loaded rules", nil
 	}, true); err != nil {
 		glog.Exitln(err)
 	}

@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/golang/glog"
-	"github.com/google/uuid"
 	toml "github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/wweir/sower/util"
@@ -19,43 +17,17 @@ var (
 	cfg           = &Cfg{}
 	// onRefresh execute hooks while refesh config
 	onRefresh = []func(*Cfg) (string, error){
-		func(c *Cfg) (action string, err error) {
-			action = "clear dns cache"
-
-			if c.Client.Suggest.OnSuggest != "" {
-				err = execute(c.Client.Suggest.OnSuggest)
+		func(c *Cfg) (string, error) {
+			if c.Client.Suggest.OnSuggest == "" {
+				return "", nil
 			}
-			return
+			if err := execute(c.Client.Suggest.OnSuggest); err != nil {
+				return "", err
+			}
+			return "flushed dns cache", nil
 		},
 	}
 )
-
-// Peer is a p2p peer or server node
-type Peer struct {
-	AddrUUID  string `toml:"addr_uuid"`
-	Transport string `toml:"transport"`
-	Cipher    string `toml:"cipher"`
-	Password  string `toml:"password"`
-}
-
-// IsP2P check if the peer is p2p peer
-func (p *Peer) IsP2P() (ok bool, network, addr string) {
-	p.AddrUUID = strings.TrimSpace(p.AddrUUID)
-
-	if _, err := uuid.Parse(p.AddrUUID); err == nil {
-		return true, "", ""
-	}
-
-	secs := strings.Split(p.AddrUUID, "://")
-	if len(secs) != 2 {
-		glog.Exitf("invalid addr_uuid setting: (%s)", p.AddrUUID)
-	}
-	if !strings.Contains(secs[1], ":") {
-		glog.Exitf("invalid addr_uuid setting: (%s)", p.AddrUUID)
-	}
-
-	return false, secs[0], secs[1]
-}
 
 // Cfg is the config file definition
 type Cfg struct {
@@ -63,10 +35,8 @@ type Cfg struct {
 	LogVerbose int    `toml:"log_verbose"`
 
 	Client struct {
-		ClientIP       string `toml:"client_ip"`
-		DNSIP          string `toml:"dns_ip"`
-		UpstreamDNS    string `toml:"upstream_dns"`
-		Socks5Addr string `toml:"upstream_socks5"`
+		ServeIP string `toml:"serve_ip"`
+		DNS     string `toml:"dns"`
 
 		Rule struct {
 			BlockList []string `toml:"blocklist"`
@@ -80,23 +50,21 @@ type Cfg struct {
 		} `toml:"suggest"`
 	} `toml:"client"`
 
-	P2P struct {
-		Self    Peer   `toml:"self"`
-		Peer    Peer   `toml:"peer"`
-		Servers []Peer `toml:"servers"`
-	} `toml:"p2p"`
+	Transport struct {
+		SelfURI   string   `toml:"self_uri"`
+		OutletURI string   `toml:"outlet_uri"`
+		Brokers   []string `toml:"brokers"`
+	} `toml:"transport"`
 
 	HTTPProxys []struct {
-		ListenAddr     string `toml:"listen_addr"`
-		Socks5Addr string `toml:"upstream_socks5"`
-		Peer           Peer   `toml:"peer"`
+		ListenAddr string `toml:"listen_addr"`
+		OutletURI  string `toml:"outlet_uri"`
 	} `toml:"http_proxy"`
 
 	DirectProxys []struct {
 		ListenAddr string `toml:"listen_addr"`
-				Socks5Addr string `toml:"upstream_socks5"`
 		TargetAddr string `toml:"target_addr"`
-		Peer       Peer   `toml:"peer"`
+		OutletURI  string `toml:"outlet_uri"`
 	} `toml:"direct_proxy"`
 
 	mu sync.Mutex
@@ -160,7 +128,7 @@ func (c *Cfg) AddSuggestion(domain string) {
 	}
 }
 
-// store persist config from memory to file
+// store safely persist config from memory to file
 func (c *Cfg) store() error {
 	f, err := os.OpenFile(c.ConfigFile+"~", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {

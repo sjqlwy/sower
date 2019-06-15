@@ -1,4 +1,4 @@
-package parser
+package router
 
 import (
 	"bufio"
@@ -55,7 +55,7 @@ func ParseAddr(conn net.Conn) (newConn net.Conn, addr string, err error) {
 	}
 
 	switch buf[0] {
-	case 13: // [D]irect connection signal 13(0x0d)
+	case 13: // [D]irect connection signal 13(0xD)
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			return nil, "", err
 		}

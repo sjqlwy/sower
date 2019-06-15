@@ -24,7 +24,7 @@ func StartDNS(dnsServer, listenIP, suggestLevel string, suggestFn func(string)) 
 	if dnsServer != "" {
 		dnsServer = net.JoinHostPort(dnsServer, "53")
 	} else {
-		go dynamicSetUpstreamDNS(listenIP, &dnsServer, dhcpCh)
+		go dynamicSetDNS(listenIP, &dnsServer, dhcpCh)
 		dhcpCh <- struct{}{}
 	}
 
@@ -53,7 +53,7 @@ func StartDNS(dnsServer, listenIP, suggestLevel string, suggestFn func(string)) 
 }
 
 // will detect default DNS setting in network with dhcpv4
-func dynamicSetUpstreamDNS(listenIP string, dnsServer *string, dhcpCh <-chan struct{}) {
+func dynamicSetDNS(listenIP string, dnsServer *string, dhcpCh <-chan struct{}) {
 	addr, _ := dns.ReverseAddr(listenIP)
 	msg := &dns.Msg{
 		MsgHdr: dns.MsgHdr{

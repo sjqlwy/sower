@@ -5,7 +5,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/wweir/sower/config"
-	"github.com/wweir/sower/proxy/socks5"
 )
 
 func StartDirectProxy() {
@@ -15,25 +14,26 @@ func StartDirectProxy() {
 			glog.Fatalln(err)
 		}
 
-		go func(ln net.Listener, tgtAddr, socks5Addr string, peer config.Peer) {
+		go func(ln net.Listener, tgtAddr, outletURI string) {
 			for {
 				conn, err := ln.Accept()
 				if err != nil {
 					glog.Errorln("listen socks5 addr fail:", err)
 					return
 				}
+				conn.(*net.TCPConn).SetKeepAlive(true)
 
-				if socks5Addr != "" {
-					rc, err := socks5.Dial(socks5Addr, tgtAddr)
-					if err != nil {
-						glog.Errorln("dial socks5 addr fail:", err)
-					}
-					relay(conn, rc)
-					return
-				}
+				// if socks5Addr != "" {
+				// 	rc, err := socks5.Dial(socks5Addr, tgtAddr)
+				// 	if err != nil {
+				// 		glog.Errorln("dial socks5 addr fail:", err)
+				// 	}
+				// 	relay(conn, rc)
+				// 	return
+				// }
 
 				// TODO: p2p  relay
 			}
-		}(ln, proxy.TargetAddr, proxy.Socks5Addr, proxy.Peer)
+		}(ln, proxy.TargetAddr, proxy.OutletURI)
 	}
 }

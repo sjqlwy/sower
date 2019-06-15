@@ -39,7 +39,7 @@ func (s *socks5) Dial(addr, targetAddr string) (net.Conn, error) {
 }
 
 func (s *socks5) Listen(string) (<-chan *TargetConn, error) {
-	panic("not support socks5 listener yet")
+	panic("not support socks5 proxy server")
 }
 
 // socks5 init conn

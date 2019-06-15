@@ -13,7 +13,7 @@ import (
 	"github.com/golang/glog"
 	quic "github.com/lucas-clemente/quic-go"
 	"github.com/pkg/errors"
-	"github.com/wweir/sower/transport/parser"
+	"github.com/wweir/sower/router"
 	"github.com/wweir/sower/util"
 )
 
@@ -62,7 +62,7 @@ func (c *quicTran) Dial(addr, targetAddr string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "stream")
 	}
 
-	return parser.WithTarget(&streamConn{
+	return router.WithTarget(&streamConn{
 		Stream: stream,
 		sess:   c.sess,
 	}, targetAddr)
@@ -98,7 +98,7 @@ func accept(sess quic.Session, connCh chan<- *TargetConn) {
 			return
 		}
 
-		c, addr, err := parser.ParseAddr(&streamConn{stream, sess})
+		c, addr, err := router.ParseAddr(&streamConn{stream, sess})
 		if err != nil {
 			glog.Errorln("parse addr:", err)
 		}

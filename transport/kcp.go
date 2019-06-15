@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"github.com/wweir/sower/transport/parser"
+	"github.com/wweir/sower/router"
 	kcp "github.com/xtaci/kcp-go"
 )
 
@@ -81,7 +81,7 @@ func (c *client) Dial(addr, targetAddr string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "SetWriteBuffer")
 	}
 
-	return parser.WithTarget(conn, targetAddr)
+	return router.WithTarget(conn, targetAddr)
 }
 
 func (s *server) Listen(port string) (<-chan *TargetConn, error) {
@@ -108,7 +108,7 @@ func (s *server) Listen(port string) (<-chan *TargetConn, error) {
 				glog.Fatalln("KCP listen:", err)
 			}
 
-			c, addr, err := parser.ParseAddr(conn)
+			c, addr, err := router.ParseAddr(conn)
 			if err != nil {
 				glog.Errorln("parse addr:", err)
 			}
