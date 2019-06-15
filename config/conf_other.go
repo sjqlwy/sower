@@ -5,6 +5,7 @@ package config
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,23 +21,24 @@ func init() {
 		defaultConfFile = ""
 	}
 
-	flag.StringVar(&cfg.ConfigFile, "f", defaultConfFile, "config file location")
-	printVersion := flag.Bool("v", false, "print sower version")
+	fmt.Println(111, os.Args[0], defaultConfFile)
+	flag.StringVar(&conf.ConfigFile, "f", defaultConfFile, "config file location")
+	printVersion := flag.Bool("V", false, "print sower version")
 
 	if !flag.Parsed() {
 		flag.Set("logtostderr", "true")
 		flag.Parse()
 	}
 
-	if err := cfg.Init(); err != nil {
+	if err := conf.Init(); err != nil {
 		if *printVersion {
-			cfg.printVersion()
+			conf.printVersion()
 		}
 		glog.Exitln(err)
 	}
 
 	if *printVersion {
-		cfg.printVersion()
+		conf.printVersion()
 	}
 }
 

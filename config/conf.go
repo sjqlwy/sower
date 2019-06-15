@@ -14,10 +14,10 @@ import (
 
 var (
 	version, date string
-	cfg           = &Cfg{}
+	conf          = &Conf{}
 	// onRefresh execute hooks while refesh config
-	onRefresh = []func(*Cfg) (string, error){
-		func(c *Cfg) (string, error) {
+	onRefresh = []func(*Conf) (string, error){
+		func(c *Conf) (string, error) {
 			if c.Client.Suggest.OnSuggest == "" {
 				return "", nil
 			}
@@ -29,8 +29,8 @@ var (
 	}
 )
 
-// Cfg is the config file definition
-type Cfg struct {
+// Conf is the config file definition
+type Conf struct {
 	ConfigFile string `toml:"-"`
 	LogVerbose int    `toml:"log_verbose"`
 
@@ -63,20 +63,20 @@ type Cfg struct {
 
 	DirectProxys []struct {
 		ListenAddr string `toml:"listen_addr"`
-		TargetAddr string `toml:"target_addr"`
 		OutletURI  string `toml:"outlet_uri"`
+		TargetAddr string `toml:"target_addr"`
 	} `toml:"direct_proxy"`
 
 	mu sync.Mutex
 }
 
-// GetCfg return the default config
-func GetCfg() *Cfg {
-	return cfg
+// GetConf return the default config
+func GetConf() *Conf {
+	return conf
 }
 
 // Init initialize the config from config file
-func (c *Cfg) Init() error {
+func (c *Conf) Init() error {
 	f, err := os.OpenFile(c.ConfigFile, os.O_RDONLY, 0644)
 	if err != nil {
 		return errors.Wrapf(err, "load config (%s)", c.ConfigFile)
@@ -99,7 +99,7 @@ func (c *Cfg) Init() error {
 }
 
 //AddHook add hook function at refresh point
-func (c *Cfg) AddHook(fn func(*Cfg) (string, error), initRun bool) (string, error) {
+func (c *Conf) AddHook(fn func(*Conf) (string, error), initRun bool) (string, error) {
 	c.mu.Lock()
 	onRefresh = append(onRefresh, fn)
 	c.mu.Unlock()
@@ -110,7 +110,7 @@ func (c *Cfg) AddHook(fn func(*Cfg) (string, error), initRun bool) (string, erro
 }
 
 // AddSuggestion add new domain into suggest rules
-func (c *Cfg) AddSuggestion(domain string) {
+func (c *Conf) AddSuggestion(domain string) {
 	c.mu.Lock()
 	c.Client.Suggest.Suggestions = append(c.Client.Suggest.Suggestions, domain)
 	c.Client.Suggest.Suggestions = util.NewReverseSecSlice(c.Client.Suggest.Suggestions).Sort().Uniq()
@@ -129,7 +129,7 @@ func (c *Cfg) AddSuggestion(domain string) {
 }
 
 // store safely persist config from memory to file
-func (c *Cfg) store() error {
+func (c *Conf) store() error {
 	f, err := os.OpenFile(c.ConfigFile+"~", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return errors.Wrapf(err, "open %s~", c.ConfigFile)
@@ -148,8 +148,8 @@ func (c *Cfg) store() error {
 }
 
 // printVersion print config and version info
-func (c *Cfg) printVersion() {
-	config, _ := json.MarshalIndent(cfg, "", "\t")
-	fmt.Printf("Version:\n\t%s %s\nCfgig:\n%s", version, date, config)
+func (c *Conf) printVersion() {
+	config, _ := json.MarshalIndent(conf, "", "\t")
+	fmt.Printf("Version:\n\t%s %s\nConfig:\n%s", version, date, config)
 	os.Exit(0)
 }

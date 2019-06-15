@@ -28,9 +28,9 @@ func init() {
 	}
 
 func initArgs() {
-	cfgFile, _ := filepath.Abs(filepath.Join(filepath.Dir(os.Args[0]), "sower.toml"))
-	flag.StringVar(&Conf.ConfigFile, "f", cfgFile, "config file location")
-	flag.BoolVar(&Conf.VersionOnly, "V", false, "print sower version")
+	ConfFile, _ := filepath.Abs(filepath.Join(filepath.Dir(os.Args[0]), "sower.toml"))
+	flag.StringVar(&conf.ConfigFile, "f", ConfFile, "config file location")
+	flag.BoolVar(&conf.VersionOnly, "V", false, "print sower version")
 	install := flag.Bool("install", false, "install sower as a service")
 	uninstall := flag.Bool("uninstall", false, "uninstall sower from service list")
 

@@ -13,7 +13,7 @@ import (
 	"github.com/golang/glog"
 	quic "github.com/lucas-clemente/quic-go"
 	"github.com/pkg/errors"
-	"github.com/wweir/sower/router"
+	"github.com/wweir/sower/transport/router"
 	"github.com/wweir/sower/util"
 )
 

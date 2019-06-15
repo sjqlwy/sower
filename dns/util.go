@@ -17,11 +17,11 @@ var (
 )
 
 func init() {
-	if _, err := config.GetCfg().AddHook(func(cfg *config.Cfg) (string, error) {
-		blockList = loadRules("block", cfg.Client.Rule.BlockList)
-		suggestList = loadRules("suggest", cfg.Client.Suggest.Suggestions)
-		whiteList = loadRules("white", cfg.Client.Rule.WhiteList)
-		if u, err := url.Parse(cfg.Transport.OutletURI); err == nil {
+	if _, err := config.GetConf().AddHook(func(Conf *config.Conf) (string, error) {
+		blockList = loadRules("block", Conf.Client.Rule.BlockList)
+		suggestList = loadRules("suggest", Conf.Client.Suggest.Suggestions)
+		whiteList = loadRules("white", Conf.Client.Rule.WhiteList)
+		if u, err := url.Parse(Conf.Transport.OutletURI); err == nil {
 			whiteList.Add(u.Hostname())
 		}
 		glog.V(1).Infoln("reloaded config")

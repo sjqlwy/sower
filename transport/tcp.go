@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/wweir/sower/router"
+	"github.com/wweir/sower/transport/router"
 )
 
 type tcp struct {

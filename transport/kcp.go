@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"github.com/wweir/sower/router"
+	"github.com/wweir/sower/transport/router"
 	kcp "github.com/xtaci/kcp-go"
 )
 
