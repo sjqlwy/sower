@@ -13,6 +13,8 @@ import (
 	"github.com/wweir/sower/util"
 )
 
+const signal = 27 // ASCII 0x1B Escape
+
 // WithTarget write target address into connection
 func WithTarget(conn net.Conn, targetAddr string) (net.Conn, error) {
 	length := len(targetAddr)
@@ -24,7 +26,7 @@ func WithTarget(conn net.Conn, targetAddr string) (net.Conn, error) {
 	}
 
 	data := make([]byte, 0, 2+length)
-	data = append(data, 13, byte(length))
+	data = append(data, signal, byte(length))
 	data = append(data, []byte(targetAddr)...)
 
 	for nn := 0; nn < 2+length; {
@@ -55,7 +57,7 @@ func ParseAddr(conn net.Conn) (newConn net.Conn, addr string, err error) {
 	}
 
 	switch buf[0] {
-	case 13: // [D]irect connection signal 13(0xD)
+	case signal:
 		if _, err := io.ReadFull(conn, buf); err != nil {
 			return nil, "", err
 		}
