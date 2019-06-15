@@ -54,7 +54,7 @@ func TestParseAddr3(t *testing.T) {
 	c1, c2 := net.Pipe()
 
 	go func() {
-		InitTarget(c1, "wweir.cc:8080")
+		WithTarget(c1, "wweir.cc:8080")
 		c1.Write(util.HTTPS.PingMsg("wweir.cc"))
 	}()
 

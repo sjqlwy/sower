@@ -1,4 +1,4 @@
-package socks5
+package transport
 
 import (
 	"encoding/binary"
@@ -9,9 +9,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+type socks5 struct {}
+
+func NewSocks5() Transport {
+	return &socks5{}
+}
+
 // Dial will dial a tcp connection with socks5 init
-func Dial(addr, tgtAddr string) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(tgtAddr)
+func (s *socks5) Dial(addr, targetAddr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(targetAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +38,11 @@ func Dial(addr, tgtAddr string) (net.Conn, error) {
 	}, nil
 }
 
+func (s *socks5) Listen(string) (<-chan *TargetConn, error) {
+	panic("not support socks5 listener yet")
+}
+
+// socks5 init conn
 type conn struct {
 	init chan struct{}
 	host string

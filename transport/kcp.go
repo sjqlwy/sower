@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	"github.com/wweir/sower/transport/parser"
 	kcp "github.com/xtaci/kcp-go"
 )
 
@@ -33,8 +34,8 @@ type server struct {
 	SockBuf     int
 }
 
-func init() {
-	transports["KCP"] = &kcpTran{
+func NewKCP() Transport {
+	return &kcpTran{
 		client: client{
 			DataShard:    10,
 			ParityShard:  3,
@@ -57,8 +58,8 @@ func init() {
 	}
 }
 
-func (c *client) Dial(server string) (net.Conn, error) {
-	conn, err := kcp.DialWithOptions(server, nil, c.DataShard, c.ParityShard)
+func (c *client) Dial(addr, targetAddr string) (net.Conn, error) {
+	conn, err := kcp.DialWithOptions(addr, nil, c.DataShard, c.ParityShard)
 	if err != nil {
 		return nil, errors.Wrap(err, "dial")
 	}
@@ -80,10 +81,10 @@ func (c *client) Dial(server string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "SetWriteBuffer")
 	}
 
-	return conn, nil
+	return parser.WithTarget(conn, targetAddr)
 }
 
-func (s *server) Listen(port string) (<-chan net.Conn, error) {
+func (s *server) Listen(port string) (<-chan *TargetConn, error) {
 	ln, err := kcp.ListenWithOptions(port, nil, s.DataShard, s.ParityShard)
 	if err != nil {
 		return nil, err
@@ -99,7 +100,7 @@ func (s *server) Listen(port string) (<-chan net.Conn, error) {
 		return nil, errors.Wrap(err, "SetWriteBuffer")
 	}
 
-	connCh := make(chan net.Conn)
+	connCh := make(chan *TargetConn)
 	go func() {
 		for {
 			conn, err := ln.AcceptKCP()
@@ -107,7 +108,11 @@ func (s *server) Listen(port string) (<-chan net.Conn, error) {
 				glog.Fatalln("KCP listen:", err)
 			}
 
-			connCh <- conn
+			c, addr, err := parser.ParseAddr(conn)
+			if err != nil {
+				glog.Errorln("parse addr:", err)
+			}
+			connCh <- &TargetConn{c, addr}
 		}
 	}()
 

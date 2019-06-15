@@ -7,10 +7,10 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/klauspost/cpuid v1.2.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.2 // indirect
-	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
+	github.com/krolaw/dhcp4 v0.0.0-20190531080455-7b64900047ae
 	github.com/libp2p/go-reuseport v0.0.1
-	github.com/lucas-clemente/quic-go v0.11.1
-	github.com/miekg/dns v1.1.13
+	github.com/lucas-clemente/quic-go v0.11.2
+	github.com/miekg/dns v1.1.14
 	github.com/pelletier/go-toml v1.4.0
 	github.com/pkg/errors v0.8.1
 	github.com/templexxx/cpufeat v0.0.0-20180724012125-cef66df7f161 // indirect
@@ -18,6 +18,7 @@ require (
 	github.com/tjfoc/gmsm v1.0.1 // indirect
 	github.com/ulule/deepcopier v0.0.0-20171107155558-ca99b135e50f // indirect
 	github.com/wweir/mem-go v0.0.0-20190109100331-8673ab596296
-	github.com/xtaci/kcp-go v5.3.9+incompatible
-	golang.org/x/crypto v0.0.0-20190530122614-20be4c3c3ed5
+	github.com/xtaci/kcp-go v5.4.2+incompatible
+	github.com/xtaci/lossyconn v0.0.0-20190602105132-8df528c0c9ae // indirect
+	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
 )

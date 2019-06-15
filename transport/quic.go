@@ -13,6 +13,7 @@ import (
 	"github.com/golang/glog"
 	quic "github.com/lucas-clemente/quic-go"
 	"github.com/pkg/errors"
+	"github.com/wweir/sower/transport/parser"
 	"github.com/wweir/sower/util"
 )
 
@@ -23,8 +24,8 @@ type quicTran struct {
 	serverConf *quic.Config
 }
 
-func init() {
-	transports["QUIC"] = &quicTran{
+func NewQUIC() Transport {
+	return &quicTran{
 
 		clientConf: &quic.Config{
 			HandshakeTimeout: time.Second,
@@ -37,9 +38,9 @@ func init() {
 	}
 }
 
-func (c *quicTran) Dial(server string) (net.Conn, error) {
+func (c *quicTran) Dial(addr, targetAddr string) (net.Conn, error) {
 	if c.sess == nil {
-		if sess, err := quic.DialAddr(server, &tls.Config{InsecureSkipVerify: true}, c.clientConf); err != nil {
+		if sess, err := quic.DialAddr(addr, &tls.Config{InsecureSkipVerify: true}, c.clientConf); err != nil {
 			return nil, errors.Wrap(err, "session")
 		} else {
 			go func() {
@@ -61,12 +62,51 @@ func (c *quicTran) Dial(server string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "stream")
 	}
 
-	return &streamConn{
+	return parser.WithTarget(&streamConn{
 		Stream: stream,
 		sess:   c.sess,
-	}, nil
+	}, targetAddr)
 }
 
+func (s *quicTran) Listen(port string) (<-chan *TargetConn, error) {
+	ln, err := quic.ListenAddr(port, mockTLSPem(), s.serverConf)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	connCh := make(chan *TargetConn)
+	go func() {
+		for {
+			sess, err := ln.Accept()
+			if err != nil {
+				glog.Fatalln(err)
+			}
+			go accept(sess, connCh)
+		}
+	}()
+	return connCh, nil
+}
+
+func accept(sess quic.Session, connCh chan<- *TargetConn) {
+	glog.V(1).Infoln("new session from ", sess.RemoteAddr())
+	defer sess.Close()
+
+	for {
+		stream, err := sess.AcceptStream()
+		if err != nil {
+			glog.Errorln(err)
+			return
+		}
+
+		c, addr, err := parser.ParseAddr(&streamConn{stream, sess})
+		if err != nil {
+			glog.Errorln("parse addr:", err)
+		}
+		connCh <- &TargetConn{c, addr}
+	}
+}
+
+// streamConn mock quic stream as a net.Conn
 type streamConn struct {
 	quic.Stream
 	sess quic.Session
@@ -80,7 +120,7 @@ func (s *streamConn) RemoteAddr() net.Addr {
 	return s.sess.RemoteAddr()
 }
 
-func mockTlsPem() *tls.Config {
+func mockTLSPem() *tls.Config {
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		glog.Fatalln(err)
@@ -99,38 +139,4 @@ func mockTlsPem() *tls.Config {
 		glog.Fatalln(err)
 	}
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
-}
-
-func (s *quicTran) Listen(port string) (<-chan net.Conn, error) {
-	ln, err := quic.ListenAddr(port, mockTlsPem(), s.serverConf)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	connCh := make(chan net.Conn)
-	go func() {
-		for {
-			sess, err := ln.Accept()
-			if err != nil {
-				glog.Fatalln(err)
-			}
-			go accept(sess, connCh)
-		}
-	}()
-	return connCh, nil
-}
-
-func accept(sess quic.Session, connCh chan<- net.Conn) {
-	glog.V(1).Infoln("new session from ", sess.RemoteAddr())
-	defer sess.Close()
-
-	for {
-		stream, err := sess.AcceptStream()
-		if err != nil {
-			glog.Errorln(err)
-			return
-		}
-
-		connCh <- &streamConn{stream, sess}
-	}
 }

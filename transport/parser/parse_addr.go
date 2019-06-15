@@ -13,11 +13,14 @@ import (
 	"github.com/wweir/sower/util"
 )
 
-// InitTarget write target address into connection
-func InitTarget(conn net.Conn, targetAddr string) error {
+// WithTarget write target address into connection
+func WithTarget(conn net.Conn, targetAddr string) (net.Conn, error) {
 	length := len(targetAddr)
-	if length > 255 {
-		return errors.New("")
+	if length == 0 {
+		return conn, nil
+	} else if length > 255 {
+		conn.Close()
+		return nil, errors.Errorf("target address(%s) is too long", targetAddr)
 	}
 
 	data := make([]byte, 0, 2+length)
@@ -27,11 +30,12 @@ func InitTarget(conn net.Conn, targetAddr string) error {
 	for nn := 0; nn < 2+length; {
 		n, err := conn.Write(data)
 		if err != nil {
-			return err
+			conn.Close()
+			return nil, err
 		}
 		nn += n
 	}
-	return nil
+	return conn, nil
 }
 
 // ParseAddr parse target address from the connection
