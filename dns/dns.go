@@ -15,16 +15,18 @@ import (
 
 // StartDNS run a dns server with intelligent detect block
 func StartDNS(dnsServer, listenIP, suggestLevel string, suggestFn func(string)) {
-	ip := net.ParseIP(listenIP)
-	suggest := &suggest{listenIP, parseSuggestLevel(suggestLevel), suggestFn, time.Second}
-	colon := byte(':')
+	const colon = byte(':')
 	mem.DefaultCache = mem.New(time.Hour)
+
+	ip := net.ParseIP(listenIP)
+	suggest := &suggest{&ip, parseSuggestLevel(suggestLevel), suggestFn, time.Second}
+	server := &dns.Server{Addr: net.JoinHostPort(listenIP, "53"), Net: "udp"}
 
 	dhcpCh := make(chan struct{})
 	if dnsServer != "" {
 		dnsServer = net.JoinHostPort(dnsServer, "53")
 	} else {
-		go dynamicSetDNS(listenIP, &dnsServer, dhcpCh)
+		go dynamicSetDNS(&ip, &dnsServer, dhcpCh)
 		dhcpCh <- struct{}{}
 	}
 
@@ -45,23 +47,21 @@ func StartDNS(dnsServer, listenIP, suggestLevel string, suggestFn func(string)) 
 			domain = domain[:idx] // trim port
 		}
 
-		handleRequest(w, r, domain, listenIP, dnsServer, dhcpCh, ip, suggest)
+		handleRequest(w, r, domain, dnsServer, dhcpCh, ip, suggest)
 	})
 
-	server := &dns.Server{Addr: net.JoinHostPort(listenIP, "53"), Net: "udp"}
 	glog.Fatalln(server.ListenAndServe())
 }
 
 // will detect default DNS setting in network with dhcpv4
-func dynamicSetDNS(listenIP string, dnsServer *string, dhcpCh <-chan struct{}) {
-	addr, _ := dns.ReverseAddr(listenIP)
+func dynamicSetDNS(ip *net.IP, dnsServer *string, dhcpCh <-chan struct{}) {
 	msg := &dns.Msg{
 		MsgHdr: dns.MsgHdr{
 			Id:               dns.Id(),
 			RecursionDesired: false,
 		},
 		Question: []dns.Question{{
-			Name:   addr,
+			Name:   ip.String(),
 			Qtype:  dns.TypeA,
 			Qclass: dns.ClassINET,
 		}},
@@ -69,30 +69,32 @@ func dynamicSetDNS(listenIP string, dnsServer *string, dhcpCh <-chan struct{}) {
 
 	for {
 		<-dhcpCh
-		if _, err := dns.Exchange(msg, *dnsServer); err == nil {
+		_, err := dns.Exchange(msg, *dnsServer)
+		if err == nil {
 			continue
 		}
 
-		host, err := GetDefaultDNSServer()
+		var host net.IP
+		*ip, host, err = GetDefaultDNSServer()
 		if err != nil {
 			glog.Errorln(err)
 			continue
 		}
 
 		// atomic action
-		*dnsServer = net.JoinHostPort(host, "53")
+		*dnsServer = net.JoinHostPort(host.String(), "53")
 		glog.Infoln("set dns server to", host)
 	}
 }
 
 // handleRequest serve dns request with suggest rules
-func handleRequest(w dns.ResponseWriter, r *dns.Msg, domain, listenIP, dnsServer string,
-	dhcpCh chan struct{}, ipNet net.IP, suggest *suggest) {
+func handleRequest(w dns.ResponseWriter, r *dns.Msg, domain, dnsServer string,
+	dhcpCh chan struct{}, localIP net.IP, suggest *suggest) {
 
 	inWriteList := whiteList.Match(domain)
 	if !inWriteList && (blockList.Match(domain) || suggestList.Match(domain)) {
 		glog.V(2).Infof("match %s suss", domain)
-		w.WriteMsg(localA(r, domain, ipNet))
+		w.WriteMsg(localA(r, domain, localIP))
 		return
 	}
 
@@ -120,7 +122,7 @@ func handleRequest(w dns.ResponseWriter, r *dns.Msg, domain, listenIP, dnsServer
 
 /******************************* suggest *******************************/
 type suggest struct {
-	listenIP  string
+	IP        *net.IP
 	level     level
 	suggestFn func(string)
 	timeout   time.Duration
@@ -151,9 +153,9 @@ func (s *suggest) GetOne(key interface{}) (iface interface{}, e error) {
 			port    util.Port
 		}{
 			{ip[0].String(), util.HTTP},
-			{s.listenIP, util.HTTP},
+			{s.IP.String(), util.HTTP},
 			{ip[0].String(), util.HTTPS},
-			{s.listenIP, util.HTTPS},
+			{s.IP.String(), util.HTTPS},
 		}
 		protos = [...]*int32{
 			new(int32), /*HTTP*/
@@ -165,7 +167,7 @@ func (s *suggest) GetOne(key interface{}) (iface interface{}, e error) {
 		go func(idx int) {
 			if err := util.HTTPPing(pings[idx].viaAddr, domain, pings[idx].port, s.timeout); err != nil {
 				// local ping fail
-				if pings[idx].viaAddr == s.listenIP {
+				if pings[idx].viaAddr == s.IP.String() {
 					atomic.AddInt32(score, -1)
 					glog.V(1).Infof("remote ping %s fail", domain)
 				} else {
@@ -174,7 +176,7 @@ func (s *suggest) GetOne(key interface{}) (iface interface{}, e error) {
 				}
 
 				// remote ping faster
-			} else if pings[idx].viaAddr == s.listenIP {
+			} else if pings[idx].viaAddr == s.IP.String() {
 				if atomic.CompareAndSwapInt32(protos[idx/2], 0, 1) && s.level == SPEEDUP {
 					atomic.AddInt32(score, 1)
 				}
