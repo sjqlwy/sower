@@ -21,7 +21,7 @@ func init() {
 		blockList = loadRules("block", Conf.Client.Rule.BlockList)
 		suggestList = loadRules("suggest", Conf.Client.Suggest.Suggestions)
 		whiteList = loadRules("white", Conf.Client.Rule.WhiteList)
-		if u, err := url.Parse(Conf.Transport.OutletURI); err == nil {
+		if u, err := url.Parse(Conf.Transport.RemoteURI); err == nil {
 			whiteList.Add(u.Hostname())
 		}
 		glog.V(1).Infoln("reloaded config")

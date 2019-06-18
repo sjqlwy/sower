@@ -19,10 +19,9 @@ func TestParseAddr1(t *testing.T) {
 		req.Write(c1)
 	}()
 
-	c2, addr, err := ParseAddr(c2)
-
-	if err != nil || addr != "wweir.cc:80" {
-		t.Error(err, addr)
+	tgtConn, err := ParseAddr(c2)
+	if err != nil || tgtConn.Addr != "wweir.cc:80" {
+		t.Error(err, tgtConn.Addr)
 	}
 
 	req, err := http.ReadRequest(bufio.NewReader(c2))
@@ -43,10 +42,10 @@ func TestParseAddr2(t *testing.T) {
 		c1.Write(util.HTTPS.PingMsg("wweir.cc"))
 	}()
 
-	_, addr, err := ParseAddr(c2)
+	tgtConn, err := ParseAddr(c2)
 
-	if err != nil || addr != "wweir.cc:443" {
-		t.Error(err, addr)
+	if err != nil || tgtConn.Addr != "wweir.cc:443" {
+		t.Error(err, tgtConn.Addr)
 	}
 }
 
@@ -54,13 +53,13 @@ func TestParseAddr3(t *testing.T) {
 	c1, c2 := net.Pipe()
 
 	go func() {
-		WithTarget(c1, "wweir.cc:8080")
+		WriteAddr(c1, "wweir.cc:8080")
 		c1.Write(util.HTTPS.PingMsg("wweir.cc"))
 	}()
 
-	_, addr, err := ParseAddr(c2)
+	tgtConn, err := ParseAddr(c2)
 
-	if err != nil || addr != "wweir.cc:8080" {
-		t.Error(err, addr)
+	if err != nil || tgtConn.Addr != "wweir.cc:8080" {
+		t.Error(err, tgtConn.Addr)
 	}
 }

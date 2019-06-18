@@ -51,19 +51,19 @@ type Conf struct {
 	} `toml:"client"`
 
 	Transport struct {
-		SelfURI   string   `toml:"self_uri"`
-		OutletURI string   `toml:"outlet_uri"`
-		Brokers   []string `toml:"brokers"`
+		LocalURI  string `toml:"local_uri"`
+		RemoteURI string `toml:"remote_uri"`
+		BrokerURI string `toml:"broker_uri"`
 	} `toml:"transport"`
 
 	HTTPProxys []struct {
 		ListenAddr string `toml:"listen_addr"`
-		OutletURI  string `toml:"outlet_uri"`
+		RemoteURI  string `toml:"remote_uri"`
 	} `toml:"http_proxy"`
 
 	DirectProxys []struct {
 		ListenAddr string `toml:"listen_addr"`
-		OutletURI  string `toml:"outlet_uri"`
+		RemoteURI  string `toml:"remote_uri"`
 		TargetAddr string `toml:"target_addr"`
 	} `toml:"direct_proxy"`
 

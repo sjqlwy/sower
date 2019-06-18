@@ -9,31 +9,33 @@ import (
 )
 
 type tcp struct {
+	raddr string
+
 	DialTimeout time.Duration
 }
 
-func NewTCP() Transport {
-	return &tcp{DialTimeout: 5 * time.Second}
+func NewTCP(raddr string) Transport {
+	return &tcp{raddr: raddr, DialTimeout: 5 * time.Second}
 }
 
-func (t *tcp) Dial(addr, targetAddr string) (net.Conn, error) {
-	conn, err := net.DialTimeout("tcp", addr, t.DialTimeout)
+func (t *tcp) Dial(addr string) (net.Conn, error) {
+	conn, err := net.DialTimeout("tcp", t.raddr, t.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
 
 	conn.(*net.TCPConn).SetKeepAlive(true)
 
-	return router.WithTarget(conn, targetAddr)
+	return router.WriteAddr(conn, addr)
 }
 
-func (t *tcp) Listen(addr string) (<-chan *TargetConn, error) {
+func (t *tcp) Listen(addr string) (<-chan *router.TargetConn, error) {
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, err
 	}
 
-	connCh := make(chan *TargetConn)
+	connCh := make(chan *router.TargetConn)
 	go func() {
 		for {
 			conn, err := ln.Accept()
@@ -42,11 +44,11 @@ func (t *tcp) Listen(addr string) (<-chan *TargetConn, error) {
 			}
 			conn.(*net.TCPConn).SetKeepAlive(true)
 
-			c, addr, err := router.ParseAddr(conn)
-			if err != nil {
+			if tgtConn, err := router.ParseAddr(conn); err != nil {
 				glog.Errorln("parse addr:", err)
+			} else {
+				connCh <- tgtConn
 			}
-			connCh <- &TargetConn{c, addr}
 		}
 	}()
 	return connCh, nil

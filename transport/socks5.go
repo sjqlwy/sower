@@ -7,17 +7,20 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
+	"github.com/wweir/sower/transport/router"
 )
 
-type socks5 struct {}
+type socks5 struct {
+	raddr string
+}
 
-func NewSocks5() Transport {
-	return &socks5{}
+func NewSocks5(raddr string) Transport {
+	return &socks5{raddr: raddr}
 }
 
 // Dial will dial a tcp connection with socks5 init
-func (s *socks5) Dial(addr, targetAddr string) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(targetAddr)
+func (s *socks5) Dial(addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +28,7 @@ func (s *socks5) Dial(addr, targetAddr string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, err := net.Dial("tcp", addr)
+	c, err := net.Dial("tcp", s.raddr)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +41,7 @@ func (s *socks5) Dial(addr, targetAddr string) (net.Conn, error) {
 	}, nil
 }
 
-func (s *socks5) Listen(string) (<-chan *TargetConn, error) {
+func (s *socks5) Listen(string) (<-chan *router.TargetConn, error) {
 	panic("not support socks5 proxy server")
 }
 

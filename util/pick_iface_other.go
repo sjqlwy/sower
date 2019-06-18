@@ -7,6 +7,12 @@ import (
 	"net"
 )
 
+// Iface is net interface address info
+type Iface struct {
+	net.HardwareAddr
+	net.IP
+}
+
 // PickInterface pick the first active net interface
 func PickInterface() (*Iface, error) {
 	ifaces, err := net.Interfaces()

@@ -14,6 +14,8 @@ type kcpTran struct {
 	server
 }
 type client struct {
+	raddr string
+
 	DataShard    int
 	ParityShard  int
 	DSCP         int
@@ -34,9 +36,10 @@ type server struct {
 	SockBuf     int
 }
 
-func NewKCP() Transport {
+func NewKCP(raddr string) Transport {
 	return &kcpTran{
 		client: client{
+			raddr:        raddr,
 			DataShard:    10,
 			ParityShard:  3,
 			DSCP:         0,
@@ -58,8 +61,8 @@ func NewKCP() Transport {
 	}
 }
 
-func (c *client) Dial(addr, targetAddr string) (net.Conn, error) {
-	conn, err := kcp.DialWithOptions(addr, nil, c.DataShard, c.ParityShard)
+func (c *client) Dial(addr string) (net.Conn, error) {
+	conn, err := kcp.DialWithOptions(c.raddr, nil, c.DataShard, c.ParityShard)
 	if err != nil {
 		return nil, errors.Wrap(err, "dial")
 	}
@@ -81,10 +84,10 @@ func (c *client) Dial(addr, targetAddr string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "SetWriteBuffer")
 	}
 
-	return router.WithTarget(conn, targetAddr)
+	return router.WriteAddr(conn, addr)
 }
 
-func (s *server) Listen(port string) (<-chan *TargetConn, error) {
+func (s *server) Listen(port string) (<-chan *router.TargetConn, error) {
 	ln, err := kcp.ListenWithOptions(port, nil, s.DataShard, s.ParityShard)
 	if err != nil {
 		return nil, err
@@ -100,7 +103,7 @@ func (s *server) Listen(port string) (<-chan *TargetConn, error) {
 		return nil, errors.Wrap(err, "SetWriteBuffer")
 	}
 
-	connCh := make(chan *TargetConn)
+	connCh := make(chan *router.TargetConn)
 	go func() {
 		for {
 			conn, err := ln.AcceptKCP()
@@ -108,11 +111,11 @@ func (s *server) Listen(port string) (<-chan *TargetConn, error) {
 				glog.Fatalln("KCP listen:", err)
 			}
 
-			c, addr, err := router.ParseAddr(conn)
-			if err != nil {
+			if tgtConn, err := router.ParseAddr(conn); err != nil {
 				glog.Errorln("parse addr:", err)
+			} else {
+				connCh <- tgtConn
 			}
-			connCh <- &TargetConn{c, addr}
 		}
 	}()
 

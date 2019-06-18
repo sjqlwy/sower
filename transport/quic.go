@@ -14,19 +14,20 @@ import (
 	quic "github.com/lucas-clemente/quic-go"
 	"github.com/pkg/errors"
 	"github.com/wweir/sower/transport/router"
-	"github.com/wweir/sower/util"
 )
 
 type quicTran struct {
+	raddr string
+
 	clientConf *quic.Config
 	sess       quic.Session
 
 	serverConf *quic.Config
 }
 
-func NewQUIC() Transport {
+func NewQUIC(raddr string) Transport {
 	return &quicTran{
-
+		raddr: raddr,
 		clientConf: &quic.Config{
 			HandshakeTimeout: time.Second,
 			KeepAlive:        true,
@@ -38,9 +39,9 @@ func NewQUIC() Transport {
 	}
 }
 
-func (c *quicTran) Dial(addr, targetAddr string) (net.Conn, error) {
+func (c *quicTran) Dial(addr string) (net.Conn, error) {
 	if c.sess == nil {
-		if sess, err := quic.DialAddr(addr, &tls.Config{InsecureSkipVerify: true}, c.clientConf); err != nil {
+		if sess, err := quic.DialAddr(c.raddr, &tls.Config{InsecureSkipVerify: true}, c.clientConf); err != nil {
 			return nil, errors.Wrap(err, "session")
 		} else {
 			go func() {
@@ -53,7 +54,7 @@ func (c *quicTran) Dial(addr, targetAddr string) (net.Conn, error) {
 	}
 
 	var stream quic.Stream
-	if err := util.WithTimeout(func() (err error) {
+	if err := withTimeout(func() (err error) {
 		if stream, err = c.sess.OpenStream(); err != nil {
 			c.sess = nil
 		}
@@ -62,19 +63,19 @@ func (c *quicTran) Dial(addr, targetAddr string) (net.Conn, error) {
 		return nil, errors.Wrap(err, "stream")
 	}
 
-	return router.WithTarget(&streamConn{
+	return router.WriteAddr(&streamConn{
 		Stream: stream,
 		sess:   c.sess,
-	}, targetAddr)
+	}, addr)
 }
 
-func (s *quicTran) Listen(port string) (<-chan *TargetConn, error) {
+func (s *quicTran) Listen(port string) (<-chan *router.TargetConn, error) {
 	ln, err := quic.ListenAddr(port, mockTLSPem(), s.serverConf)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	connCh := make(chan *TargetConn)
+	connCh := make(chan *router.TargetConn)
 	go func() {
 		for {
 			sess, err := ln.Accept()
@@ -87,7 +88,7 @@ func (s *quicTran) Listen(port string) (<-chan *TargetConn, error) {
 	return connCh, nil
 }
 
-func accept(sess quic.Session, connCh chan<- *TargetConn) {
+func accept(sess quic.Session, connCh chan<- *router.TargetConn) {
 	glog.V(1).Infoln("new session from ", sess.RemoteAddr())
 	defer sess.Close()
 
@@ -98,11 +99,11 @@ func accept(sess quic.Session, connCh chan<- *TargetConn) {
 			return
 		}
 
-		c, addr, err := router.ParseAddr(&streamConn{stream, sess})
-		if err != nil {
+		if tgtConn, err := router.ParseAddr(&streamConn{stream, sess}); err != nil {
 			glog.Errorln("parse addr:", err)
+		} else {
+			connCh <- tgtConn
 		}
-		connCh <- &TargetConn{c, addr}
 	}
 }
 
@@ -139,4 +140,21 @@ func mockTLSPem() *tls.Config {
 		glog.Fatalln(err)
 	}
 	return &tls.Config{Certificates: []tls.Certificate{tlsCert}}
+}
+
+func withTimeout(fn func() error, timeout time.Duration) error {
+	var okCh = make(chan struct{})
+	var err error
+
+	go func() {
+		err = fn()
+		close(okCh)
+	}()
+
+	select {
+	case <-okCh:
+		return err
+	case <-time.After(timeout):
+		return errors.New("timeout: " + timeout.String())
+	}
 }
