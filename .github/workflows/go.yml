@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
 
       - name: Set up Go Build Environment
         uses: actions/setup-go@v1
@@ -25,20 +25,20 @@ jobs:
       - name: build matrix
         run: |
           GOOS=linux GOARCH=amd64 make build
-          tar czvf sower-linux-amd64.tar.gz sower sower.toml sower-client.service sower-server.service
+          tar czvf sower-linux-amd64.tar.gz sower sower.toml
           GOOS=linux GOARCH=386 make build
-          tar czvf sower-linux-386.tar.gz sower sower.toml sower-client.service sower-server.service
+          tar czvf sower-linux-386.tar.gz sower sower.toml
           GOOS=linux GOARCH=arm make build
-          tar czvf sower-linux-arm.tar.gz sower sower.toml sower-client.service sower-server.service
+          tar czvf sower-linux-arm.tar.gz sower sower.toml
           GOOS=linux GOARCH=arm64 make build
-          tar czvf sower-linux-arm64.tar.gz sower sower.toml sower-client.service sower-server.service
+          tar czvf sower-linux-arm64.tar.gz sower sower.toml
           GOOS=linux GOARCH=mips make build
-          tar czvf sower-linux-mips.tar.gz sower sower.toml sower-client.service sower-server.service
+          tar czvf sower-linux-mips.tar.gz sower sower.toml
           GOOS=linux GOARCH=mipsle make build
-          tar czvf sower-linux-mipsle.tar.gz sower sower.toml sower-client.service sower-server.service
+          tar czvf sower-linux-mipsle.tar.gz sower sower.toml
 
           GOOS=darwin GOARCH=amd64 make build
-          tar czvf sower-darwin-amd64.tar.gz sower sower.toml cc.wweir.sower.plist
+          tar czvf sower-darwin-amd64.tar.gz sower sower.toml
 
           GOOS=windows GOARCH=amd64 make build
           tar czvf sower-windows-amd64.tar.gz sower.exe sower.toml
