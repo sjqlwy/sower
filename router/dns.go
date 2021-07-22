@@ -36,12 +36,12 @@ func (r *Router) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 
 	conn := <-r.dns.connCh
 	resp, rtt, err := r.dns.ExchangeWithConn(req, conn)
-	if err != nil {
-		log.Error().Err(err).
-			Dur("rtt", rtt).
-			Str("domain", domain).
-			Msg("exchange dns record")
+	log.Debug().Err(err).
+		Dur("rtt", rtt).
+		Str("domain", domain).
+		Msg("exchange dns record")
 
+	if err != nil {
 		conn.Close()
 		w.WriteMsg(r.dnsFail(req, dns.RcodeServerFailure))
 		return
